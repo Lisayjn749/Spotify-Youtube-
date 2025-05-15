@@ -1,4 +1,5 @@
---- Spotify insert --- 
+--- Spotify+Youtube Insert --- 
+--- Insert the raw data to the normalized tables in the database -- 
 
 -- Album Type -- 
 create sequence seq_spot_album_type;
@@ -13,8 +14,8 @@ from (
     from spot_album_type
 )
 
-
--- 3
+-- Check if there's duplicates
+-- 3 distinct values
 select count(distinct album_type) from spot_stage;	
 select count(ALBUM_TYPE_pk) from SPOT_ALBUM_TYPE;
 
@@ -371,11 +372,6 @@ FROM (
   FROM spot_stage
 );	
 
-
-
-
-
-
 -- Views -- 
 create or replace view spot_view as 
 select *
@@ -454,17 +450,9 @@ select  'drop sequence seq_'||table_name || ';'
      where  table_name like '%SPOT%'
      
     
-select  'drop table '||table_name || ';'
-     from user_tables  -- user_tables
-     where  table_name like '%SPOT%'
 
-
-select  'select * from '||table_name || ';'，
-         'select ' || table_name || '_pk count(*) from spot_stage;',
-        'select count(*) from '||table_name || ';'
-     from user_tables  -- user_tables
-     where  table_name like '%SPOT%'
-
+      
+-- Shortcut commands -- 
 select count(*) from spot_stage
 
 drop table SPOT_ALBUM;
@@ -482,13 +470,7 @@ drop table SPOT_TRACK_ARTIST;
 drop table SPOT_VID;
 drop table SPOT_VID_CHANNEL;
 drop table SPOT_VID_TRACK;
-
-select album, album_type 
-from SPOT_STAGE
-group by album 
-having count(album_type) > 1
-
-     
+ 
 drop sequence seq_SPOT_ALBUM;
 drop sequence seq_SPOT_ALBUM_TYPE;
 drop sequence seq_SPOT_ALBUM_TYPE_MAP;
@@ -502,169 +484,7 @@ drop sequence seq_SPOT_VID;
 drop sequence seq_SPOT_YT_STATS;
 drop sequence seq_SPOT_ARTIST;
 
-SET DEFINE OFF
-CREATE TABLE SPOT_STAGE ( Artist VARCHAR2(500),
-Track VARCHAR2(2000),
-Album VARCHAR2(500),
-Album_type VARCHAR2(500),
-Danceability NUMBER(38, 3),
-Energy NUMBER(38, 3),
-Loudness NUMBER(38, 3),
-Speechiness NUMBER(38, 4),
-Acousticness NUMBER(38, 8),
-Instrumentalness NUMBER(38, 8),
-Liveness NUMBER(38, 4),
-Valence NUMBER(38, 3),
-Tempo NUMBER(38, 3),
-Duration_min NUMBER(38, 9),
-Title VARCHAR2(1000),
-Channel VARCHAR2(1000),
-Views NUMBER(38),
-Likes NUMBER(38),
-Comments NUMBER(38),
-Licensed VARCHAR2(100),
-official_video VARCHAR2(100),
-Stream NUMBER(38),
-EnergyLiveness NUMBER(38, 9),
-most_playedon VARCHAR2(100));
 
-select album
-from (
-    select album, album_type
-    from spot_stage
-    group by album, album_type
-)
-group by album
-having count(*) > 1
-
-select title
-from (
-    select title,channel
-    from spot_stage
-    group by title, channel
-)
-group by title
-having count(*) > 1
-
-select title, channel
-from spot_stage
-where title = 'Vete'
-
-select album, album_type, artist, track, most_playedon
-from spot_stage
-where album = 'Home'
-
-select album, album_type, artist, track, most_playedon
-from spot_stage
-where track = 'El Perdedor'
-
--- 1. add pk to bridge tables 
--- 2. get rid of 'map' in bridge tables names
--- 2.1 fix names of the constraints
--- 3. change most_play to platform
--- 3.1 change id to pk and fk
--- 4. add the 6 bridge tables listed below
--- 5. check data model first!
--- 6. check insert rows and compare with each other!
-
--- many to many
--- track and artist (song be sang by multiple artists) -- album_artist
--- album and track (one track belongs to multiple albums)
--- artist and album 
--- album and album type (one album has multiple album types)
--- video and channel
--- platform and track 
-
-
-
--- shows dups!
-select track_name, count(*) 
-from spot_track
-group by track_name
-having count(*) > 1
-
-select count(*) from spot_track_artist brg
-join spot_track trk
-    on trk.track_pk = brg.track_fk
-    
-    
-select count(distinct track_name) from spot_track_artist brg
-join spot_track trk
-    on trk.track_pk = brg.track_fk
-
-select track_name from spot_track_artist brg
-join spot_track trk
-    on trk.track_pk = brg.track_fk
-
-minus 
-select track 
-from spot_stage
-
-select * from SPOT_ALBUM;	
-
-SELECT COUNT(*) FROM (SELECT DISTINCT stream, track)
-
-select count(distinct stream) from spot_stage;	
-select count(Sp_STAT_pk) from SPOT_SP_STATS;
-select count(*) from SPOT_SP_STATS
-
-
-SELECT track_name, COUNT(*)
-FROM spot_track
-GROUP BY track_name
-HAVING COUNT(*) > 1;
-
-select track
-from spot_stage
-where stream is null
-    
-
-
-select * from SPOT_CHANNEL;	
-
-select * from spot_view
-
-select * from SPOT_STAGE;	select SPOT_STAGE_pk count(*) from spot_stage;	select count(*) from SPOT_STAGE;
-
-select * from SPOT_VID;	select SPOT_VID_pk count(*) from spot_stage;	select count(*) from SPOT_VID;
-select * from SPOT_YT_STATS;	select SPOT_YT_STATS_pk count(*) from spot_stage;	select count(*) from SPOT_YT_STATS;
-
-
-create or replace view spot_top_artist_by_view as 
-
-select channel, sum(views) total_views
-from spot_stage
-group by channel
-order by total_views desc
-fetch first 10 rows only
-
-select * from spot_top_artist_by_view
-
-
-CREATE VIEW v_top_youtube_tracks AS
-SELECT
-  trk.track_name,
-  art.artist_name,
-  yt.views,
-  sp.streams,
-  f.danceability,
-  f.energy,
-  f.valence,
-  f.speechiness,
-  f.instrumentalness,
-  f.liveness,
-  f.loudness,
-  f.tempo,
-  f.duration
-FROM SPOT_TRACK trk
-JOIN SPOT_VID_TRACK ytvt ON ytvt.track_fk = trk.track_pk
-JOIN NKF_SPOT_VID vid ON ytvid.vid_pk = ytvt.yt_vid_fk
-JOIN N_SPOT_YT_STAT yt ON yt.yt_vid_fk = ytvid.vid_pk
-LEFT JOIN NKF_SPOT_SP_STAT sp ON sp.track_fk = trk.track_pk
-JOIN NKF_SPOT_TRACK_ARTIST ta ON ta.track_fk = trk.track_pk
-JOIN NKF_SPOT_ARTIST art ON art.artist_pk = ta.artist_fk
-LEFT JOIN NKF_SPOT_FEATURE f ON f.track_fk = trk.track_pk
-ORDER BY yt.views DESC;
 
 
   
